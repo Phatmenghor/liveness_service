@@ -57,6 +57,14 @@ class SequentialChallengeScanner:
         self.last_yaw = 0
         self.last_pitch = 0
 
+        # Track yaw/pitch across frames for cumulative movement
+        self.yaw_values = []
+        self.pitch_values = []
+        self.challenge_yaw_min = float('inf')
+        self.challenge_yaw_max = float('-inf')
+        self.challenge_pitch_min = float('inf')
+        self.challenge_pitch_max = float('-inf')
+
     def get_current_challenge(self):
         """Get current challenge"""
         if self.current_challenge_idx < len(self.challenges):
@@ -219,17 +227,18 @@ class SequentialChallengeScanner:
         if challenge['check'] == 'center':
             return self.check_face_centered(face_summary, h, w)
 
-        yaw = movement_summary.max_yaw_deg
-        pitch = movement_summary.max_pitch_deg
+        # Use accumulated min/max values across frames
+        yaw_range = self.challenge_yaw_max - self.challenge_yaw_min
+        pitch_range = self.challenge_pitch_max - self.challenge_pitch_min
 
         if challenge['check'] == 'left':
-            return yaw < -12  # Turn left > 12°
+            return self.challenge_yaw_min < -12  # Max left turn > 12°
         elif challenge['check'] == 'right':
-            return yaw > 12   # Turn right > 12°
+            return self.challenge_yaw_max > 12   # Max right turn > 12°
         elif challenge['check'] == 'down':
-            return pitch > 10  # Look down > 10°
+            return self.challenge_pitch_max > 10  # Max down look > 10°
         elif challenge['check'] == 'up':
-            return pitch < -10  # Look up > 10°
+            return self.challenge_pitch_min < -10  # Max up look > 10°
 
         return False
 
@@ -243,19 +252,56 @@ class SequentialChallengeScanner:
         if not face_summary.face_detected:
             return False
 
-        # Movement detection
-        movement_summary = self.movement_detector.analyse(face_summary, w, h)
+        # Get head pose for this frame
+        try:
+            # Extract 6 key landmarks for pose estimation
+            landmarks = face_summary.per_frame[0].landmarks
+            lm_array = np.array([[lm.x, lm.y] for lm in landmarks.landmark])
 
-        # Store current pose for display
-        self.last_yaw = movement_summary.max_yaw_deg
-        self.last_pitch = movement_summary.max_pitch_deg
+            # Get a simplified pose estimate from landmark positions
+            # (nose to chin vertical movement = pitch, ear to ear horizontal = yaw)
+            nose_y = landmarks.landmark[1].y
+            chin_y = landmarks.landmark[152].y
+            left_ear_x = landmarks.landmark[263].x
+            right_ear_x = landmarks.landmark[33].x
+
+            # Pitch: vertical face movement (0 to 1 normalized)
+            face_height = chin_y - nose_y
+            center_y = (chin_y + nose_y) / 2
+            pitch = (center_y - 0.5) * 50  # Scale to degrees
+
+            # Yaw: horizontal face movement (0 to 1 normalized)
+            face_center_x = (left_ear_x + right_ear_x) / 2
+            yaw = (face_center_x - 0.5) * 50  # Scale to degrees
+
+            self.last_yaw = yaw
+            self.last_pitch = pitch
+
+            # Track cumulative movement for current challenge
+            self.yaw_values.append(yaw)
+            self.pitch_values.append(pitch)
+            self.challenge_yaw_min = min(self.challenge_yaw_min, yaw)
+            self.challenge_yaw_max = max(self.challenge_yaw_max, yaw)
+            self.challenge_pitch_min = min(self.challenge_pitch_min, pitch)
+            self.challenge_pitch_max = max(self.challenge_pitch_max, pitch)
+
+        except:
+            return False
 
         # Check if current challenge completed
-        if self.check_challenge_complete(face_summary, movement_summary, h, w):
+        if self.check_challenge_complete(face_summary, None, h, w):
             print(f"\n✓ Challenge completed: {self.challenges[self.current_challenge_idx]['name']}")
             self.completed_challenges += 1
             self.current_challenge_idx += 1
             self.challenge_start_time = time.time()
+
+            # Reset accumulators for next challenge
+            self.yaw_values = []
+            self.pitch_values = []
+            self.challenge_yaw_min = float('inf')
+            self.challenge_yaw_max = float('-inf')
+            self.challenge_pitch_min = float('inf')
+            self.challenge_pitch_max = float('-inf')
 
             # Check if all done
             if self.completed_challenges >= len(self.challenges):
