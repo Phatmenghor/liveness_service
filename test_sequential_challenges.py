@@ -39,12 +39,13 @@ class SequentialChallengeScanner:
         self.spoof_detector = SpoofDetector()
 
         # Challenges in sequence (5 challenges x 20% each)
+        # Thresholds lowered for easier detection
         self.challenges = [
             {'name': 'Face Centered', 'icon': '◉', 'check': 'center', 'target': None},
-            {'name': 'Turn LEFT', 'icon': '←', 'check': 'left', 'target_yaw': -15},
-            {'name': 'Turn RIGHT', 'icon': '→', 'check': 'right', 'target_yaw': 15},
-            {'name': 'Look DOWN', 'icon': '↓', 'check': 'down', 'target_pitch': 12},
-            {'name': 'Look UP', 'icon': '↑', 'check': 'up', 'target_pitch': -12},
+            {'name': 'Turn LEFT', 'icon': '←', 'check': 'left', 'target_yaw': -12},
+            {'name': 'Turn RIGHT', 'icon': '→', 'check': 'right', 'target_yaw': 12},
+            {'name': 'Look DOWN', 'icon': '↓', 'check': 'down', 'target_pitch': 10},
+            {'name': 'Look UP', 'icon': '↑', 'check': 'up', 'target_pitch': -10},
         ]
 
         self.current_challenge_idx = 0
@@ -53,6 +54,8 @@ class SequentialChallengeScanner:
         self.frame_count = 0
         self.start_time = time.time()
         self.challenge_start_time = time.time()
+        self.last_yaw = 0
+        self.last_pitch = 0
 
     def get_current_challenge(self):
         """Get current challenge"""
@@ -84,8 +87,8 @@ class SequentialChallengeScanner:
 
         return frame
 
-    def draw_face_guide(self, frame):
-        """Draw face guide circle in center"""
+    def draw_face_guide(self, frame, yaw_deg=0, pitch_deg=0):
+        """Draw face guide circle in center with head pose debug"""
         h, w = frame.shape[:2]
 
         center_x, center_y = w // 2, h // 2
@@ -122,6 +125,11 @@ class SequentialChallengeScanner:
                 (center_x + radius - corner_len, center_y + radius + 5), color, thickness)
         cv2.line(frame, (center_x + radius + 5, center_y + radius + 5),
                 (center_x + radius + 5, center_y + radius - corner_len), color, thickness)
+
+        # Debug: Show head pose angles
+        debug_text = f"YAW: {yaw_deg:.1f}° | PITCH: {pitch_deg:.1f}°"
+        cv2.putText(frame, debug_text, (20, h - 20),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 1)
 
         return frame
 
@@ -215,13 +223,13 @@ class SequentialChallengeScanner:
         pitch = movement_summary.max_pitch_deg
 
         if challenge['check'] == 'left':
-            return yaw < -15  # Turn left > 15°
+            return yaw < -12  # Turn left > 12°
         elif challenge['check'] == 'right':
-            return yaw > 15   # Turn right > 15°
+            return yaw > 12   # Turn right > 12°
         elif challenge['check'] == 'down':
-            return pitch > 12  # Look down > 12°
+            return pitch > 10  # Look down > 10°
         elif challenge['check'] == 'up':
-            return pitch < -12  # Look up > 12°
+            return pitch < -10  # Look up > 10°
 
         return False
 
@@ -237,6 +245,10 @@ class SequentialChallengeScanner:
 
         # Movement detection
         movement_summary = self.movement_detector.analyse(face_summary, w, h)
+
+        # Store current pose for display
+        self.last_yaw = movement_summary.max_yaw_deg
+        self.last_pitch = movement_summary.max_pitch_deg
 
         # Check if current challenge completed
         if self.check_challenge_complete(face_summary, movement_summary, h, w):
@@ -295,7 +307,7 @@ class SequentialChallengeScanner:
             # Draw overlays
             display_frame = frame.copy()
             display_frame = self.draw_challenge_prompt(display_frame)
-            display_frame = self.draw_face_guide(display_frame)
+            display_frame = self.draw_face_guide(display_frame, self.last_yaw, self.last_pitch)
             display_frame = self.draw_progress_percentage(display_frame)
             display_frame = self.draw_completion_list(display_frame)
 
