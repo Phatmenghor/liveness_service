@@ -1,13 +1,14 @@
 """
-test_sequential_challenges.py - Sequential Challenges Only (4 x 25%)
+test_sequential_challenges.py - Sequential Challenges Only (5 x 20%)
 
-Complete 4 challenges in sequence:
-1. Turn LEFT (25%)
-2. Turn RIGHT (25%)
-3. Look DOWN (25%)
-4. Look UP (25%)
+Complete 5 challenges in sequence:
+1. Face Centered (20%)
+2. Turn LEFT (20%)
+3. Turn RIGHT (20%)
+4. Look DOWN (20%)
+5. Look UP (20%)
 
-Each challenge = 25%. Complete all 4 = 100% SUCCESS!
+Each challenge = 20%. Complete all 5 = 100% SUCCESS!
 
 Run: python test_sequential_challenges.py
 """
@@ -37,8 +38,9 @@ class SequentialChallengeScanner:
         self.movement_detector = MovementDetector()
         self.spoof_detector = SpoofDetector()
 
-        # Challenges in sequence
+        # Challenges in sequence (5 challenges x 20% each)
         self.challenges = [
+            {'name': 'Face Centered', 'icon': '◉', 'check': 'center', 'target': None},
             {'name': 'Turn LEFT', 'icon': '←', 'check': 'left', 'target_yaw': -15},
             {'name': 'Turn RIGHT', 'icon': '→', 'check': 'right', 'target_yaw': 15},
             {'name': 'Look DOWN', 'icon': '↓', 'check': 'down', 'target_pitch': 12},
@@ -81,7 +83,7 @@ class SequentialChallengeScanner:
                    cv2.FONT_HERSHEY_SIMPLEX, 2.5, (0, 255, 0), 3)
 
         # Progress
-        progress_text = f"Step {self.completed_challenges + 1} of 4"
+        progress_text = f"Step {self.completed_challenges + 1} of 5"
         cv2.putText(frame, progress_text, (w // 2 - 120, h // 2 + 150),
                    cv2.FONT_HERSHEY_SIMPLEX, 1.5, (255, 255, 0), 2)
 
@@ -146,11 +148,45 @@ class SequentialChallengeScanner:
 
         return frame
 
-    def check_challenge_complete(self, movement_summary):
+    def check_face_centered(self, face_summary, h, w):
+        """Check if face is centered"""
+        if not face_summary.face_detected:
+            return False
+
+        try:
+            landmarks = face_summary.per_frame[0].landmarks
+            lm_array = np.array([[lm.x, lm.y] for lm in landmarks.landmark])
+
+            # Face size
+            x_min, x_max = lm_array[:, 0].min(), lm_array[:, 0].max()
+            y_min, y_max = lm_array[:, 1].min(), lm_array[:, 1].max()
+
+            face_width = (x_max - x_min)
+            face_height = (y_max - y_min)
+
+            # Must be at least 15% of frame
+            if face_width < 0.15 or face_height < 0.15:
+                return False
+
+            # Must be centered (±30% tolerance)
+            center_x = (x_max + x_min) / 2
+            center_y = (y_max + y_min) / 2
+
+            if abs(center_x - 0.5) > 0.3 or abs(center_y - 0.5) > 0.3:
+                return False
+
+            return True
+        except:
+            return False
+
+    def check_challenge_complete(self, face_summary, movement_summary, h, w):
         """Check if current challenge is completed"""
         challenge = self.get_current_challenge()
         if not challenge:
             return False
+
+        if challenge['check'] == 'center':
+            return self.check_face_centered(face_summary, h, w)
 
         yaw = movement_summary.max_yaw_deg
         pitch = movement_summary.max_pitch_deg
@@ -180,7 +216,7 @@ class SequentialChallengeScanner:
         movement_summary = self.movement_detector.analyse(face_summary, w, h)
 
         # Check if current challenge completed
-        if self.check_challenge_complete(movement_summary):
+        if self.check_challenge_complete(face_summary, movement_summary, h, w):
             print(f"\n✓ Challenge completed: {self.challenges[self.current_challenge_idx]['name']}")
             self.completed_challenges += 1
             self.current_challenge_idx += 1
@@ -204,12 +240,13 @@ class SequentialChallengeScanner:
         print("SEQUENTIAL LIVENESS CHALLENGES".center(60))
         print(f"{'='*60}\n")
         print(f"Session ID: {self.session_id}\n")
-        print("Complete 4 challenges in sequence:")
-        print("  1. Turn HEAD LEFT (25%)")
-        print("  2. Turn HEAD RIGHT (25%)")
-        print("  3. Look DOWN (25%)")
-        print("  4. Look UP (25%)\n")
-        print("Each challenge = 25%. Complete all 4 = 100% SUCCESS!\n")
+        print("Complete 5 challenges in sequence:")
+        print("  1. Face Centered (20%)")
+        print("  2. Turn HEAD LEFT (20%)")
+        print("  3. Turn HEAD RIGHT (20%)")
+        print("  4. Look DOWN (20%)")
+        print("  5. Look UP (20%)\n")
+        print("Each challenge = 20%. Complete all 5 = 100% SUCCESS!\n")
 
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
@@ -297,6 +334,7 @@ class SequentialChallengeScanner:
             print("✓ ✓ ✓ 100% LIVENESS VERIFIED ✓ ✓ ✓".center(60))
             print("="*60)
             print("\n🎉 ALL CHALLENGES COMPLETED!")
+            print("✓ Face Centered - Complete")
             print("✓ Turn LEFT - Complete")
             print("✓ Turn RIGHT - Complete")
             print("✓ Look DOWN - Complete")
