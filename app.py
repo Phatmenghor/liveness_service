@@ -9,6 +9,7 @@ Dev:   python app.py
 Prod:  gunicorn -w 2 -b 0.0.0.0:5000 app:app
 """
 
+import os
 import time
 from flask import Flask, jsonify, request
 
@@ -82,12 +83,13 @@ app = create_app()
 # Dev server entry point
 # ──────────────────────────────────────────────
 if __name__ == "__main__":
+    port = int(os.getenv("PORT", config.APP_PORT))
     app_logger.info(
-        f"Starting development server on {config.APP_HOST}:{config.APP_PORT} ..."
+        f"Starting development server on {config.APP_HOST}:{port} ..."
     )
     app.run(
         host=config.APP_HOST,
-        port=config.APP_PORT,
+        port=port,
         debug=config.DEBUG_MODE,
         use_reloader=False,     # disable reloader to avoid double MediaPipe init
     )

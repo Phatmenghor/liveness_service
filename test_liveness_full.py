@@ -21,7 +21,7 @@ import json
 # For API calls
 import requests
 
-API_URL = "http://localhost:5000"
+API_URL = "http://localhost:5001"
 
 class Colors:
     """Terminal colors"""
