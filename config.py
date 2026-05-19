@@ -45,6 +45,7 @@ MIN_FRAMES_REQUIRED = 5           # reject if fewer frames extracted
 FACE_DETECTION_CONFIDENCE = 0.6   # min_detection_confidence
 FACE_TRACKING_CONFIDENCE  = 0.6   # min_tracking_confidence
 FACE_REFINE_LANDMARKS     = True  # use refined 478-landmark model
+MAX_FACES_ALLOWED         = 1     # reject if multiple faces detected (spoof protection)
 
 # ──────────────────────────────────────────────
 # BLINK DETECTION THRESHOLDS

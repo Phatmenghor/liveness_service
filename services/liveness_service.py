@@ -152,6 +152,20 @@ class LivenessService:
                 reason="No face detected in the submitted frames.",
             )
 
+        # Short-circuit: multiple faces detected → spoof attempt
+        if face_summary.multi_face_detected:
+            log_debug(session_id, f"Multiple faces detected in {face_summary.multi_face_frames} frames — REJECTED")
+            return self._build_result(
+                session_id=session_id,
+                face_detected=False,
+                blink=BlinkDetectionResult(),
+                movement=MovementDetectionResult(),
+                spoof=SpoofDetectionResult(
+                    spoof_detected=True, reason="Multiple faces detected (possible spoof)."
+                ),
+                reason=f"Multiple faces detected in {face_summary.multi_face_frames} frames — only 1 face allowed.",
+            )
+
         # ── Stage 2: Blink Detection ──
         log_debug(session_id, "Stage 2: BlinkDetector")
         blink: BlinkDetectionResult = self._blink_detector.analyse(face_summary)

@@ -27,6 +27,7 @@ class FaceFrameResult:
     detected: bool = False
     landmarks: Optional[object] = None   # mediapipe NormalizedLandmarkList
     frame_index: int = 0
+    face_count: int = 0                  # number of faces detected in frame
 
 
 @dataclass
@@ -35,6 +36,8 @@ class FaceDetectionSummary:
     face_detected: bool = False
     detection_rate: float = 0.0          # fraction of frames with a face
     per_frame: list[FaceFrameResult] = field(default_factory=list)
+    multi_face_detected: bool = False    # true if any frame has 2+ faces
+    multi_face_frames: int = 0           # count of frames with multiple faces
 
 
 # ──────────────────────────────────────────────
@@ -61,10 +64,11 @@ class FaceDetector:
         """
         per_frame: list[FaceFrameResult] = []
         detected_count = 0
+        multi_face_count = 0
 
         with self._mp_face_mesh.FaceMesh(
             static_image_mode=False,
-            max_num_faces=1,
+            max_num_faces=2,
             refine_landmarks=config.FACE_REFINE_LANDMARKS,
             min_detection_confidence=config.FACE_DETECTION_CONFIDENCE,
             min_tracking_confidence=config.FACE_TRACKING_CONFIDENCE,
@@ -74,20 +78,25 @@ class FaceDetector:
                 per_frame.append(result)
                 if result.detected:
                     detected_count += 1
+                    if result.face_count > 1:
+                        multi_face_count += 1
 
         total = len(frames) or 1
         detection_rate = detected_count / total
         face_detected = detected_count > 0
+        multi_face_detected = multi_face_count > 0
 
         app_logger.debug(
             f"FaceDetector: {detected_count}/{total} frames with face "
-            f"(rate={detection_rate:.2f})"
+            f"(rate={detection_rate:.2f}), multi-face in {multi_face_count} frames"
         )
 
         return FaceDetectionSummary(
             face_detected=face_detected,
             detection_rate=detection_rate,
             per_frame=per_frame,
+            multi_face_detected=multi_face_detected,
+            multi_face_frames=multi_face_count,
         )
 
     # ── private helpers ───────────────────────
@@ -103,9 +112,11 @@ class FaceDetector:
         results = mesh.process(rgb)
 
         if results.multi_face_landmarks:
+            face_count = len(results.multi_face_landmarks)
             return FaceFrameResult(
                 detected=True,
                 landmarks=results.multi_face_landmarks[0],
                 frame_index=idx,
+                face_count=face_count,
             )
-        return FaceFrameResult(detected=False, frame_index=idx)
+        return FaceFrameResult(detected=False, frame_index=idx, face_count=0)
