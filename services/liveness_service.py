@@ -25,6 +25,7 @@ from core.face_detector import FaceDetector, FaceDetectionSummary
 from core.blink_detector import BlinkDetector, BlinkDetectionResult
 from core.movement_detector import MovementDetector, MovementDetectionResult
 from core.spoof_detector import SpoofDetector, SpoofDetectionResult
+from core.face_quality_checker import FaceQualityChecker, QualityCheckResult
 from utils.logger import app_logger, log_request, log_error, log_debug
 
 
@@ -64,6 +65,7 @@ class LivenessService:
 
     def __init__(self) -> None:
         self._face_detector     = FaceDetector()
+        self._quality_checker   = FaceQualityChecker()
         self._blink_detector    = BlinkDetector()
         self._movement_detector = MovementDetector()
         self._spoof_detector    = SpoofDetector()
@@ -166,6 +168,23 @@ class LivenessService:
                 reason=f"Multiple faces detected in {face_summary.multi_face_frames} frames — only 1 face allowed.",
             )
 
+        # ── Stage 1.5: Face Quality Check (Bank-Grade KYC) ──
+        log_debug(session_id, "Stage 1.5: FaceQualityChecker")
+        quality_issues = self._check_face_quality(
+            session_id, frames, face_summary, w, h
+        )
+        if quality_issues:
+            return self._build_result(
+                session_id=session_id,
+                face_detected=False,
+                blink=BlinkDetectionResult(),
+                movement=MovementDetectionResult(),
+                spoof=SpoofDetectionResult(
+                    spoof_detected=True, reason="Face quality check failed."
+                ),
+                reason=f"Face quality check failed: {quality_issues}",
+            )
+
         # ── Stage 2: Blink Detection ──
         log_debug(session_id, "Stage 2: BlinkDetector")
         blink: BlinkDetectionResult = self._blink_detector.analyse(face_summary)
@@ -187,6 +206,64 @@ class LivenessService:
             movement=movement,
             spoof=spoof,
         )
+
+    # ── Face Quality Validation ────────────────
+    def _check_face_quality(
+        self,
+        session_id: str,
+        frames: list[np.ndarray],
+        face_summary: FaceDetectionSummary,
+        frame_width: int,
+        frame_height: int,
+    ) -> str:
+        """
+        Check all frames pass quality standards (bank-grade KYC).
+
+        Returns empty string if all pass, or failure reason if any fail.
+        """
+        quality_failures = []
+        quality_pass_count = 0
+
+        for idx, frame_result in enumerate(face_summary.per_frame):
+            if not frame_result.detected:
+                continue
+
+            quality_result = self._quality_checker.check_frame_quality(
+                frames[idx],
+                frame_result.landmarks,
+                frame_width,
+                frame_height,
+            )
+
+            if quality_result.passes_quality:
+                quality_pass_count += 1
+            else:
+                # Log first few failures for debugging
+                if len(quality_failures) < 3:
+                    quality_failures.append(
+                        f"Frame {idx}: {' | '.join(quality_result.failures)}"
+                    )
+
+        detected_count = sum(1 for r in face_summary.per_frame if r.detected)
+        if detected_count == 0:
+            return "No frames with detected face"
+
+        quality_ratio = quality_pass_count / detected_count
+
+        if config.QUALITY_CHECKS_MANDATORY and quality_ratio < 1.0:
+            failure_msg = " | ".join(quality_failures) if quality_failures else "Quality check failed"
+            log_debug(session_id, f"Quality check failed: {failure_msg} ({quality_pass_count}/{detected_count} frames)")
+            return failure_msg
+
+        if quality_ratio < config.MIN_QUALITY_FRAMES_RATIO:
+            log_debug(
+                session_id,
+                f"Insufficient quality frames: {quality_ratio:.1%} < {config.MIN_QUALITY_FRAMES_RATIO:.1%}"
+            )
+            return f"Only {quality_ratio:.1%} frames pass quality checks (need {config.MIN_QUALITY_FRAMES_RATIO:.1%})"
+
+        log_debug(session_id, f"Quality check passed: {quality_pass_count}/{detected_count} frames")
+        return ""
 
     # ── Score computation ─────────────────────
     @staticmethod

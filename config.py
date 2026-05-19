@@ -78,6 +78,27 @@ SESSION_TTL_SECONDS = 300         # 5 min session expiry
 MAX_ACTIVE_SESSIONS = 500         # cap in-memory session store
 
 # ──────────────────────────────────────────────
+# FACE QUALITY CHECKS (Bank-Grade KYC)
+# ──────────────────────────────────────────────
+# Face Size — must occupy 20-70% of frame
+FACE_SIZE_MIN_PERCENT = 20.0
+FACE_SIZE_MAX_PERCENT = 70.0
+
+# Face Centering — must be within ±20% of frame center
+FACE_CENTER_TOLERANCE = 0.2
+
+# Lighting Quality — brightness must be 60-220 (0-255 scale)
+LIGHTING_MIN_BRIGHTNESS = 60
+LIGHTING_MAX_BRIGHTNESS = 220
+
+# Blur Detection — Laplacian variance must be > 100
+BLUR_THRESHOLD = 100.0
+
+# Quality Check Strictness (Bank-Grade KYC)
+QUALITY_CHECKS_MANDATORY = True   # if true, ALL frames must pass quality checks
+MIN_QUALITY_FRAMES_RATIO = 1.0    # 100% of frames must pass quality checks
+
+# ──────────────────────────────────────────────
 # REQUEST TIMEOUT
 # ──────────────────────────────────────────────
 REQUEST_TIMEOUT_SEC = 30          # processing hard timeout
