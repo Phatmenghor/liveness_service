@@ -95,8 +95,8 @@ class SequentialChallengeScanner:
 
         return frame
 
-    def draw_face_guide(self, frame, yaw_deg=0, pitch_deg=0):
-        """Draw face guide circle in center with head pose debug"""
+    def draw_face_guide(self, frame):
+        """Draw face guide circle in center"""
         h, w = frame.shape[:2]
 
         center_x, center_y = w // 2, h // 2
@@ -134,10 +134,22 @@ class SequentialChallengeScanner:
         cv2.line(frame, (center_x + radius + 5, center_y + radius + 5),
                 (center_x + radius + 5, center_y + radius - corner_len), color, thickness)
 
-        # Debug: Show head pose angles
-        debug_text = f"YAW: {yaw_deg:.1f}° | PITCH: {pitch_deg:.1f}°"
-        cv2.putText(frame, debug_text, (20, h - 20),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 1)
+        return frame
+
+    def draw_debug_display(self, frame, yaw_deg=0, pitch_deg=0):
+        """Draw large debug display at top (clearly visible)"""
+        h, w = frame.shape[:2]
+
+        # Top-left corner panel for debug info
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (400, 100), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
+
+        # Large debug text
+        cv2.putText(frame, f"YAW: {yaw_deg:.1f}°", (15, 45),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3)
+        cv2.putText(frame, f"PITCH: {pitch_deg:.1f}°", (15, 85),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3)
 
         return frame
 
@@ -353,7 +365,8 @@ class SequentialChallengeScanner:
             # Draw overlays
             display_frame = frame.copy()
             display_frame = self.draw_challenge_prompt(display_frame)
-            display_frame = self.draw_face_guide(display_frame, self.last_yaw, self.last_pitch)
+            display_frame = self.draw_face_guide(display_frame)
+            display_frame = self.draw_debug_display(display_frame, self.last_yaw, self.last_pitch)
             display_frame = self.draw_progress_percentage(display_frame)
             display_frame = self.draw_completion_list(display_frame)
 
