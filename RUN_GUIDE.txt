@@ -1,0 +1,157 @@
+================================================================================
+LIVENESS SERVICE - MACBOOK QUICK START GUIDE
+================================================================================
+
+SETUP (First time only)
+================================================================================
+
+1. Check Python version (must be 3.10, 3.11, or 3.12):
+   python3 --version
+
+2. If Python < 3.10, upgrade:
+   brew install python@3.12
+   python3.12 --version
+
+3. Navigate to project:
+   cd /path/to/liveness_service
+
+4. Create virtual environment:
+   python3.12 -m venv venv
+
+5. Activate virtual environment:
+   source venv/bin/activate
+
+6. Install dependencies:
+   pip install -r requirements.txt
+
+
+================================================================================
+RUNNING THE PROJECT (Every time)
+================================================================================
+
+1. Activate virtual environment:
+   source venv/bin/activate
+
+2. Choose one option:
+
+   OPTION A: Run LOCAL CAMERA TEST (Recommended first!)
+   ─────────────────────────────────────────────────────
+   python local_test.py
+
+   - Shows live webcam with face detection
+   - Press Q to stop and see summary
+   - Alternatives:
+     python local_test.py --camera 1              # Use 2nd webcam
+     python local_test.py --skip 2                # Faster (every 2nd frame)
+     python local_test.py --no-window             # Headless mode
+
+
+   OPTION B: Run API Server
+   ─────────────────────────
+   python app.py
+
+   - Server runs at http://localhost:5000
+   - Open another terminal tab to test API
+
+
+   OPTION C: Run with DEBUG Mode (Verbose logging)
+   ────────────────────────────────────────────────
+   DEBUG_MODE=true python app.py
+
+
+   OPTION D: Run Production Server
+   ────────────────────────────────
+   gunicorn -w 2 -b 0.0.0.0:5000 app:app
+
+
+================================================================================
+API TESTING (Keep server running, open new terminal)
+================================================================================
+
+1. Health Check:
+   curl http://localhost:5000/health
+
+2. Upload Video File:
+   curl -X POST http://localhost:5000/liveness/check \
+     -F "sessionId=TEST-001" \
+     -F "video=@/path/to/video.mp4"
+
+3. Send Base64 Frames:
+   curl -X POST http://localhost:5000/liveness/check \
+     -H "Content-Type: application/json" \
+     -d '{
+       "sessionId": "TEST-002",
+       "frames": ["data:image/jpeg;base64,iVBORw0K..."]
+     }'
+
+4. View Logs:
+   tail -f logs/app.log
+
+
+================================================================================
+SCORING SYSTEM
+================================================================================
+
+Face detected       +30 pts
+Blink detected      +25 pts
+Head movement       +25 pts
+Anti-spoof passed   +20 pts
+─────────────────────────────
+TOTAL              100 pts
+
+PASS = score ≥ 70
+FAIL = score < 70
+
+
+================================================================================
+COMMON ISSUES
+================================================================================
+
+Q: "ModuleNotFoundError: No module named 'mediapipe'"
+A: Make sure virtual environment is activated:
+   source venv/bin/activate
+
+Q: "cv2.error: (-215:Assertion failed)"
+A: Camera issue - check permissions or use: python local_test.py --camera 1
+
+Q: Python version too old
+A: Upgrade: brew install python@3.12
+
+Q: Port 5000 already in use
+A: Kill the process: lsof -ti:5000 | xargs kill -9
+
+================================================================================
+QUICK COMMANDS CHEAT SHEET
+================================================================================
+
+# Activate venv
+source venv/bin/activate
+
+# Deactivate venv
+deactivate
+
+# Test camera
+python local_test.py
+
+# Run server
+python app.py
+
+# Debug mode
+DEBUG_MODE=true python app.py
+
+# Production
+gunicorn -w 2 -b 0.0.0.0:5000 app:app
+
+# Test health
+curl http://localhost:5000/health
+
+# View logs
+tail -f logs/app.log
+
+# Install new package
+pip install package_name
+
+# Freeze requirements
+pip freeze > requirements.txt
+
+================================================================================
