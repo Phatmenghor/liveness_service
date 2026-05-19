@@ -46,7 +46,7 @@ class ContinuousLivenessTest:
 
         # Title
         cv2.putText(frame, "LIVENESS VERIFICATION TEST", (20, 40),
-                    cv2.FONT_HERSHEY_BOLD, 1.2, (0, 255, 0), 2)
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 0), 2)
 
         # Instructions
         instructions = [
@@ -138,7 +138,7 @@ class ContinuousLivenessTest:
 
                 challenge = ChallengeGenerator.generate()
                 cv2.putText(display_frame, challenge.description, (w // 4 + 20, h // 2 - 20),
-                            cv2.FONT_HERSHEY_BOLD, 1.5, (0, 255, 255), 2)
+                            cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 2)
                 cv2.putText(display_frame, challenge.instruction, (w // 4 + 20, h // 2 + 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 1)
 
