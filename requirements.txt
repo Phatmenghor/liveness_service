@@ -1,0 +1,25 @@
+# ──────────────────────────────────────────────────────────────
+# Liveness Detection Microservice — CPBank KYC
+# Python 3.10+  |  pip install -r requirements.txt
+# ──────────────────────────────────────────────────────────────
+
+# ── Web Framework ──────────────────────────────────────────────
+Flask==3.0.3
+gunicorn==22.0.0          # production WSGI server (Linux/macOS)
+Werkzeug==3.0.3
+
+# ── Computer Vision ────────────────────────────────────────────
+# IMPORTANT: use opencv-python (NOT headless) — local_test.py
+# requires cv2.imshow() / cv2.namedWindow() which the headless
+# build strips out.  Swap to opencv-python-headless only on
+# server deployments where no display is needed.
+opencv-python==4.10.0.84
+
+# ── AI / Face Analysis ─────────────────────────────────────────
+mediapipe==0.10.14
+
+# ── Numeric ────────────────────────────────────────────────────
+numpy==1.26.4
+
+# ── Environment / Config helpers ───────────────────────────────
+python-dotenv==1.0.1      # optional: load .env file for APP_HOST, etc.

@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Logs (keep the dir, ignore the files)
+logs/*.log
+logs/*.log.*
+
+# Temp / OS
+.DS_Store
+Thumbs.db
+*.tmp
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Distribution
+dist/
+build/
+*.egg-info/
+
+# Env files
+.env
+.env.*
