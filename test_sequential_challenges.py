@@ -61,7 +61,7 @@ class SequentialChallengeScanner:
         return None
 
     def draw_challenge_prompt(self, frame):
-        """Draw clear challenge instruction at top"""
+        """Draw challenge instruction at top"""
         h, w = frame.shape[:2]
 
         challenge = self.get_current_challenge()
@@ -70,83 +70,103 @@ class SequentialChallengeScanner:
 
         # Top instruction banner
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (w, 140), (0, 0, 0), -1)
+        cv2.rectangle(overlay, (0, 0), (w // 2, 100), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
 
         # Step counter
-        step_text = f"STEP {self.completed_challenges + 1} of 5"
-        cv2.putText(frame, step_text, (30, 40),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.2, (0, 255, 255), 2)
+        step_text = f"STEP {self.completed_challenges + 1}/5"
+        cv2.putText(frame, step_text, (20, 35),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
 
         # Current challenge name (large and clear)
-        cv2.putText(frame, challenge['name'], (30, 90),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.8, (0, 255, 0), 3)
+        cv2.putText(frame, challenge['name'], (20, 75),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
         return frame
 
-    def draw_progress_circle(self, frame):
-        """Draw progress circle (top right)"""
+    def draw_face_guide(self, frame):
+        """Draw face guide circle in center"""
         h, w = frame.shape[:2]
 
-        # Calculate progress (0-360 degrees)
+        center_x, center_y = w // 2, h // 2
+        radius = 140
+
+        # Guide circle (green outline)
+        cv2.circle(frame, (center_x, center_y), radius, (0, 255, 0), 3)
+
+        # Corner guides
+        corner_len = 40
+        thickness = 3
+        color = (0, 255, 0)
+
+        # Top-left
+        cv2.line(frame, (center_x - radius - 5, center_y - radius - 5),
+                (center_x - radius + corner_len, center_y - radius - 5), color, thickness)
+        cv2.line(frame, (center_x - radius - 5, center_y - radius - 5),
+                (center_x - radius - 5, center_y - radius + corner_len), color, thickness)
+
+        # Top-right
+        cv2.line(frame, (center_x + radius + 5, center_y - radius - 5),
+                (center_x + radius - corner_len, center_y - radius - 5), color, thickness)
+        cv2.line(frame, (center_x + radius + 5, center_y - radius - 5),
+                (center_x + radius + 5, center_y - radius + corner_len), color, thickness)
+
+        # Bottom-left
+        cv2.line(frame, (center_x - radius - 5, center_y + radius + 5),
+                (center_x - radius + corner_len, center_y + radius + 5), color, thickness)
+        cv2.line(frame, (center_x - radius - 5, center_y + radius + 5),
+                (center_x - radius - 5, center_y + radius - corner_len), color, thickness)
+
+        # Bottom-right
+        cv2.line(frame, (center_x + radius + 5, center_y + radius + 5),
+                (center_x + radius - corner_len, center_y + radius + 5), color, thickness)
+        cv2.line(frame, (center_x + radius + 5, center_y + radius + 5),
+                (center_x + radius + 5, center_y + radius - corner_len), color, thickness)
+
+        return frame
+
+    def draw_progress_percentage(self, frame):
+        """Draw progress percentage (top right)"""
+        h, w = frame.shape[:2]
+
+        # Calculate progress
         total_progress = (self.completed_challenges / len(self.challenges)) * 100
-        angle = (total_progress / 100) * 360
-
-        # Position top right
-        center = (w - 100, 70)
-        radius = 50
-
-        # Background circle (dark gray)
-        cv2.circle(frame, center, radius, (60, 60, 60), 3)
-
-        # Progress arc (green)
-        if angle > 0:
-            cv2.ellipse(frame, center, (radius, radius), 0, 0, int(angle), (0, 255, 0), 8)
-
-        # Percentage text (center)
         pct = int(total_progress)
-        cv2.putText(frame, f"{pct}%", (center[0] - 25, center[1] + 10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+
+        # Draw on top right
+        cv2.putText(frame, f"{pct}%", (w - 120, 50),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 0), 3)
 
         return frame
 
     def draw_completion_list(self, frame):
-        """Draw progress checklist at bottom"""
+        """Draw progress checklist on RIGHT SIDE (not blocking face)"""
         h, w = frame.shape[:2]
 
-        # Background panel (bottom half)
+        # Right panel (vertical list)
         overlay = frame.copy()
-        cv2.rectangle(overlay, (20, h - 280), (w - 20, h - 20), (0, 0, 0), -1)
+        cv2.rectangle(overlay, (w - 250, 100), (w, h - 20), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.85, frame, 0.15, 0, frame)
 
-        # Title
-        cv2.putText(frame, "PROGRESS", (30, h - 250),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 0), 2)
-
-        y = h - 200
+        y = 130
         for i, challenge in enumerate(self.challenges):
-            # Step number
-            step_num = f"{i + 1}."
-
             if i < self.completed_challenges:
                 # Completed (green checkmark)
                 status_icon = "✓"
                 color = (0, 255, 0)
-                name_text = challenge['name']
             elif i == self.completed_challenges:
                 # Current (arrow)
                 status_icon = "→"
                 color = (0, 255, 255)
-                name_text = challenge['name'] + "  (DO THIS NOW)"
             else:
                 # Waiting (circle)
                 status_icon = "○"
                 color = (120, 120, 120)
-                name_text = challenge['name']
 
             # Draw step indicator
-            cv2.putText(frame, f"{status_icon} {step_num} {name_text}", (40, y),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.75, color, 2)
+            step_text = f"{status_icon} {i + 1}. {challenge['name']}"
+            cv2.putText(frame, step_text, (w - 240, y),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.55, color, 1)
             y += 45
 
         return frame
@@ -275,7 +295,8 @@ class SequentialChallengeScanner:
             # Draw overlays
             display_frame = frame.copy()
             display_frame = self.draw_challenge_prompt(display_frame)
-            display_frame = self.draw_progress_circle(display_frame)
+            display_frame = self.draw_face_guide(display_frame)
+            display_frame = self.draw_progress_percentage(display_frame)
             display_frame = self.draw_completion_list(display_frame)
 
             # Show
