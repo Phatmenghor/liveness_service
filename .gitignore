@@ -15,6 +15,7 @@ ENV/
 # Logs (keep the dir, ignore the files)
 logs/*.log
 logs/*.log.*
+*.log
 
 # Temp / OS
 .DS_Store
