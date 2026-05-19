@@ -180,6 +180,7 @@ def _run_service_and_respond(session_id: str, frames, input_type: str):
         result=result_dict,
         reason=result.reason,
         processing_time=result.processing_time,
+        challenge=result.challenge,
         http_status=200,
     )
 

@@ -26,6 +26,8 @@ from core.blink_detector import BlinkDetector, BlinkDetectionResult
 from core.movement_detector import MovementDetector, MovementDetectionResult
 from core.spoof_detector import SpoofDetector, SpoofDetectionResult
 from core.face_quality_checker import FaceQualityChecker, QualityCheckResult
+from core.challenge_detector import ChallengeGenerator, ChallengeValidator, ChallengeRequest, ChallengeResult
+from core.mouth_detector import MouthDetector
 from utils.logger import app_logger, log_request, log_error, log_debug
 
 
@@ -49,6 +51,7 @@ class LivenessCheckResult:
     spoof_detected: bool
     reason: str
     processing_time: float
+    challenge: dict | None = None                # challenge request/result
     debug_info: dict | None = None
 
 
@@ -69,6 +72,8 @@ class LivenessService:
         self._blink_detector    = BlinkDetector()
         self._movement_detector = MovementDetector()
         self._spoof_detector    = SpoofDetector()
+        self._challenge_validator = ChallengeValidator()
+        self._mouth_detector    = MouthDetector()
         app_logger.info("LivenessService initialised — all AI modules loaded.")
 
     # ── Public API ─────────────────────────────
@@ -199,12 +204,20 @@ class LivenessService:
         log_debug(session_id, "Stage 4: SpoofDetector")
         spoof: SpoofDetectionResult = self._spoof_detector.analyse(frames, face_summary)
 
+        # ── Stage 5: Challenge Validation ──
+        log_debug(session_id, "Stage 5: ChallengeValidator")
+        challenge_req, challenge_result = self._validate_challenge(
+            session_id, face_summary, blink, movement
+        )
+
         return self._build_result(
             session_id=session_id,
             face_detected=True,
             blink=blink,
             movement=movement,
             spoof=spoof,
+            challenge_request=challenge_req,
+            challenge_result=challenge_result,
         )
 
     # ── Face Quality Validation ────────────────
@@ -265,6 +278,42 @@ class LivenessService:
         log_debug(session_id, f"Quality check passed: {quality_pass_count}/{detected_count} frames")
         return ""
 
+    # ── Challenge Validation ───────────────────
+    def _validate_challenge(
+        self,
+        session_id: str,
+        face_summary: FaceDetectionSummary,
+        blink: BlinkDetectionResult,
+        movement: MovementDetectionResult,
+    ) -> tuple[ChallengeRequest | None, ChallengeResult | None]:
+        """
+        Generate a random challenge and validate if it was completed.
+
+        Returns (challenge_request, challenge_result).
+        """
+        # Generate random challenge
+        challenge_req = ChallengeGenerator.generate()
+        log_debug(session_id, f"Challenge generated: {challenge_req.description}")
+
+        # Validate against detected metrics
+        challenge_result = self._challenge_validator.validate_challenge(
+            challenge_req.challenge_type,
+            blink_count=blink.blink_count,
+            mouth_ratio=0.0,  # Not calculated in current pipeline
+            max_yaw=movement.max_yaw_deg,
+            max_pitch=movement.max_pitch_deg,
+        )
+
+        if challenge_result.completed:
+            log_debug(session_id, f"Challenge PASSED: {challenge_req.description}")
+        else:
+            log_debug(
+                session_id,
+                f"Challenge FAILED: {challenge_req.description} - {challenge_result.reason}"
+            )
+
+        return challenge_req, challenge_result
+
     # ── Score computation ─────────────────────
     @staticmethod
     def _build_result(
@@ -273,6 +322,8 @@ class LivenessService:
         blink: BlinkDetectionResult,
         movement: MovementDetectionResult,
         spoof: SpoofDetectionResult,
+        challenge_request: ChallengeRequest | None = None,
+        challenge_result: ChallengeResult | None = None,
         reason: str = "",
     ) -> LivenessCheckResult:
         """Compute score from component results and assemble the final object."""
@@ -299,6 +350,23 @@ class LivenessService:
             score += config.SCORE_ANTI_SPOOF_PASSED
         else:
             reasons.append(f"Spoof risk: {spoof.reason}")
+
+        # Challenge scoring
+        challenge_dict = None
+        if challenge_request and challenge_result:
+            if challenge_result.completed:
+                score += config.SCORE_CHALLENGE_PASSED
+            else:
+                reasons.append(f"Challenge failed: {challenge_result.reason}")
+
+            challenge_dict = {
+                "type": challenge_request.challenge_type.value,
+                "description": challenge_request.description,
+                "instruction": challenge_request.instruction,
+                "completed": challenge_result.completed,
+                "reason": challenge_result.reason,
+                "confidence": challenge_result.confidence,
+            }
 
         status = "PASS" if score >= config.PASS_THRESHOLD else "FAIL"
         final_reason = reason or (
@@ -331,6 +399,7 @@ class LivenessService:
             spoof_detected=spoof.spoof_detected,
             reason=final_reason,
             processing_time=0.0,  # set by caller
+            challenge=challenge_dict,
             debug_info=debug_info,
         )
 

@@ -19,6 +19,7 @@ def build_liveness_response(
     result: dict[str, bool],
     reason: str,
     processing_time: float,
+    challenge: dict | None = None,
     http_status: int = 200,
 ) -> tuple[Response, int]:
     """
@@ -39,6 +40,8 @@ def build_liveness_response(
         "reason": reason,
         "processingTimeSeconds": round(processing_time, 3),
     }
+    if challenge:
+        body["challenge"] = challenge
     return jsonify(body), http_status
 
 

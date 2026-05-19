@@ -24,10 +24,11 @@ LOG_BACKUP_COUNT = 5                # keep last 5 rotated files
 # ──────────────────────────────────────────────
 # SCORING WEIGHTS  (must sum to 100)
 # ──────────────────────────────────────────────
-SCORE_FACE_DETECTED      = 30
-SCORE_BLINK_DETECTED     = 25
-SCORE_HEAD_MOVEMENT      = 25
+SCORE_FACE_DETECTED      = 20
+SCORE_BLINK_DETECTED     = 20
+SCORE_HEAD_MOVEMENT      = 20
 SCORE_ANTI_SPOOF_PASSED  = 20
+SCORE_CHALLENGE_PASSED   = 20  # new: challenge completion
 
 PASS_THRESHOLD = 70  # score >= 70 → PASS
 
