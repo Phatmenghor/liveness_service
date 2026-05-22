@@ -140,16 +140,16 @@ class SequentialChallengeScanner:
         """Draw large debug display at top (clearly visible)"""
         h, w = frame.shape[:2]
 
-        # Top-left corner panel for debug info
+        # Top-left corner panel for debug info (darker background)
         overlay = frame.copy()
-        cv2.rectangle(overlay, (0, 0), (400, 100), (0, 0, 0), -1)
-        cv2.addWeighted(overlay, 0.9, frame, 0.1, 0, frame)
+        cv2.rectangle(overlay, (0, 0), (420, 110), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.95, frame, 0.05, 0, frame)
 
-        # Large debug text
+        # Large debug text with outline for better visibility
         cv2.putText(frame, f"YAW: {yaw_deg:.1f}°", (15, 45),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3)
-        cv2.putText(frame, f"PITCH: {pitch_deg:.1f}°", (15, 85),
-                   cv2.FONT_HERSHEY_SIMPLEX, 1.4, (0, 255, 255), 3)
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 4)
+        cv2.putText(frame, f"PITCH: {pitch_deg:.1f}°", (15, 90),
+                   cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 255, 255), 4)
 
         return frame
 
@@ -358,6 +358,9 @@ class SequentialChallengeScanner:
             ret, frame = cap.read()
             if not ret:
                 break
+
+            # Enhance camera display (brightness & contrast)
+            frame = cv2.convertScaleAbs(frame, alpha=1.1, beta=15)  # Slightly brighter & contrast
 
             # Analyze frame
             all_complete = self.analyze_frame(frame)
